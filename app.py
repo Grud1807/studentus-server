@@ -14,6 +14,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://grud1807.github.io"}})
 logging.basicConfig(level=logging.INFO)
 
+# Функция отправки Telegram-сообщений
 def send_telegram_message(user_id, text):
     try:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -23,10 +24,11 @@ def send_telegram_message(user_id, text):
             "parse_mode": "Markdown"
         }
         response = requests.post(url, json=payload)
-        logging.info(f"📩 Сообщение пользователю {user_id}: {response.status_code}")
+        logging.info(f"📩 Отправлено сообщение пользователю {user_id}: {response.status_code}")
     except Exception as e:
-        logging.error(f"❌ Ошибка Telegram: {e}")
+        logging.error(f"❌ Ошибка при отправке Telegram: {e}")
 
+# Добавление задания
 @app.route("/add-task", methods=["POST"])
 def add_task():
     try:
@@ -69,10 +71,12 @@ def add_task():
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": response.text}), 400
+
     except Exception as e:
         logging.exception("❌ Ошибка при добавлении")
         return jsonify({"success": False, "error": str(e)}), 500
 
+# Взятие задания в работу
 @app.route("/take-task", methods=["POST"])
 def take_task():
     try:
@@ -109,7 +113,6 @@ def take_task():
                 "Подтверждение исполнителя": "Нет"
             }
         }
-
         patch_resp = requests.patch(f"{AIRTABLE_URL}/{record_id}", headers=headers, json=update_data)
 
         if patch_resp.status_code in [200, 201]:
