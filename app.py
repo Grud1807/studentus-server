@@ -14,6 +14,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://grud1807.github.io"}})
 logging.basicConfig(level=logging.INFO)
 
+# ✅ Отправка сообщения в Telegram
 def send_telegram_message(user_id, text):
     try:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -23,10 +24,11 @@ def send_telegram_message(user_id, text):
             "parse_mode": "Markdown"
         }
         response = requests.post(url, json=payload)
-        logging.info(f"📩 Сообщение пользователю {user_id}: {response.status_code}")
+        logging.info(f"📩 Сообщение пользователю {user_id}: {response.status_code} {response.text}")
     except Exception as e:
         logging.error(f"❌ Ошибка Telegram: {e}")
 
+# ✅ Добавление задания
 @app.route("/add-task", methods=["POST"])
 def add_task():
     try:
@@ -65,7 +67,7 @@ def add_task():
         logging.info(f"📤 Ответ Airtable: {response.status_code} {response.text}")
 
         if response.status_code in [200, 201]:
-            send_telegram_message(user_id, "✅ Задание успешно добавлено!Ожидайте, когда его возьмут в работу.")
+            send_telegram_message(user_id, "✅ Задание успешно добавлено!\nОжидайте, когда его возьмут в работу.")
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": response.text}), 400
@@ -73,13 +75,14 @@ def add_task():
         logging.exception("❌ Ошибка при добавлении")
         return jsonify({"success": False, "error": str(e)}), 500
 
+# ✅ Взятие задания
 @app.route("/take-task", methods=["POST"])
 def take_task():
     try:
         data = request.json
         record_id = data.get("record_id")
         executor_id = data.get("executor_id")
-        executor_username = data.get("executor_username") or "без username"
+        executor_username = data.get("executor_username")
 
         if not record_id or not executor_id:
             return jsonify({"success": False, "error": "Нет данных"}), 400
@@ -89,18 +92,20 @@ def take_task():
             "Content-Type": "application/json"
         }
 
+        # Получение задания
         get_resp = requests.get(f"{AIRTABLE_URL}/{record_id}", headers=headers)
         if get_resp.status_code != 200:
             return jsonify({"success": False, "error": "Задание не найдено"}), 404
 
         task = get_resp.json()["fields"]
         customer_id = task.get("ID пользователя")
-        customer_username = task.get("Пользователь Telegram") or "без username"
+        customer_username = task.get("Пользователь Telegram", "неизвестно")
         subject = task.get("Предмет", "")
         description = task.get("Описание", "")
         price = task.get("Цена", "")
         deadline = task.get("Дедлайн", "")
 
+        # Обновляем статус
         update_data = {
             "fields": {
                 "Статус": "В работе",
@@ -114,41 +119,26 @@ def take_task():
         logging.info(f"📦 Обновляем задание {record_id} | Исполнитель: {executor_username} (ID: {executor_id})")
 
         if patch_resp.status_code in [200, 201]:
+            # Сообщение исполнителю
             send_telegram_message(
                 executor_id,
-                f"📚 Вы взяли задание:
-
-*{subject}*
-📝 {description}
-💰 {price} ₽
-⏰ Дедлайн: {deadline}
-
-👤 Заказчик: {customer_username}
-
-После выполнения нажмите *'✅ Подтвердить выполнение'*."
+                f"📚 Вы взяли задание:\n\n*{subject}*\n📝 {description}\n💰 {price} ₽\n⏰ Дедлайн: {deadline}\n\n👤 Заказчик: @{customer_username}\n\nПосле выполнения нажмите *'✅ Подтвердить выполнение'*."
             )
+
+            # Сообщение заказчику
             send_telegram_message(
                 customer_id,
-                f"✅ Ваше задание взяли в работу!
-
-*{subject}*
-📝 {description}
-💰 {price} ₽
-⏰ Дедлайн: {deadline}
-
-👨💻 Исполнитель: {executor_username}
-
-После выполнения нажмите *'✅ Подтвердить выполнение'*."
+                f"✅ Ваше задание взяли в работу!\n\n*{subject}*\n📝 {description}\n💰 {price} ₽\n⏰ Дедлайн: {deadline}\n\n👨💻 Исполнитель: @{executor_username}\n\nПосле выполнения нажмите *'✅ Подтвердить выполнение'*."
             )
+
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": patch_resp.text}), 400
 
     except Exception as e:
-        logging.exception("❌ Ошибка при взятии")
+        logging.exception("❌ Ошибка при взятии задания")
         return jsonify({"success": False, "error": str(e)}), 500
 
-# Запуск
+# ✅ Запуск сервера
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
-
