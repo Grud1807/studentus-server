@@ -115,19 +115,20 @@ def take_task():
         }
 
         patch_resp = requests.patch(f"{AIRTABLE_URL}/{record_id}", headers=headers, json=update_data)
-
-        if patch_resp.status_code in [200, 201]:
-            send_telegram_message(
-                executor_id,
-                f"📚 Вы взяли задание:\n\n*{subject}*\n📝 {description}\n💰 {price} ₽\n⏰ Дедлайн: {deadline}\n\n👤 Заказчик: @{customer_username}\n\nПосле выполнения нажмите *'✅ Подтвердить выполнение'*."
-            )
-            send_telegram_message(
-                customer_id,
-                f"✅ Ваше задание взяли в работу!\n\n*{subject}*\n📝 {description}\n💰 {price} ₽\n⏰ Дедлайн: {deadline}\n\n👨💻 Исполнитель: @{executor_username}\n\nПосле выполнения нажмите *'✅ Подтвердить выполнение'*."
-            )
-            return jsonify({"success": True})
-        else:
+        if patch_resp.status_code not in [200, 201]:
             return jsonify({"success": False, "error": patch_resp.text}), 400
+
+        # ✅ Отправка сообщений после успешного обновления
+        send_telegram_message(
+            executor_id,
+            f"📚 Вы взяли задание:\n\n*{subject}*\n📝 {description}\n💰 {price} ₽\n⏰ Дедлайн: {deadline}\n\n👤 Заказчик: @{customer_username}\n\nПосле выполнения нажмите *'✅ Подтвердить выполнение'*."
+        )
+        send_telegram_message(
+            customer_id,
+            f"✅ Ваше задание взяли в работу!\n\n*{subject}*\n📝 {description}\n💰 {price} ₽\n⏰ Дедлайн: {deadline}\n\n👨‍💻 Исполнитель: @{executor_username}\n\nПосле выполнения нажмите *'✅ Подтвердить выполнение'*."
+        )
+
+        return jsonify({"success": True})
 
     except Exception as e:
         logging.exception("❌ Ошибка при взятии")
@@ -136,5 +137,6 @@ def take_task():
 # 🚀 Важно: слушаем 0.0.0.0, чтобы видеть порт на Render!
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
+
 
 
