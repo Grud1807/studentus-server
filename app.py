@@ -3,7 +3,6 @@ from flask_cors import CORS
 import requests
 import logging
 
-# Конфигурация
 BOT_TOKEN = "8101750587:AAEoO1Aote7wHIRDADD4kpwFyYOYIkibe_c"
 AIRTABLE_API_KEY = "patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4"
 AIRTABLE_BASE_ID = "appTpq4tdeQ27uxQ9"
@@ -14,7 +13,6 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://grud1807.github.io"}})
 logging.basicConfig(level=logging.INFO)
 
-# Функция отправки Telegram-сообщений
 def send_telegram_message(user_id, text):
     try:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -24,11 +22,10 @@ def send_telegram_message(user_id, text):
             "parse_mode": "Markdown"
         }
         response = requests.post(url, json=payload)
-        logging.info(f"📩 Отправлено сообщение пользователю {user_id}: {response.status_code}")
+        logging.info(f"📩 Сообщение пользователю {user_id}: {response.status_code}")
     except Exception as e:
-        logging.error(f"❌ Ошибка при отправке Telegram: {e}")
+        logging.error(f"❌ Ошибка Telegram: {e}")
 
-# Добавление задания
 @app.route("/add-task", methods=["POST"])
 def add_task():
     try:
@@ -76,7 +73,6 @@ def add_task():
         logging.exception("❌ Ошибка при добавлении")
         return jsonify({"success": False, "error": str(e)}), 500
 
-# Взятие задания в работу
 @app.route("/take-task", methods=["POST"])
 def take_task():
     try:
@@ -113,6 +109,7 @@ def take_task():
                 "Подтверждение исполнителя": "Нет"
             }
         }
+
         patch_resp = requests.patch(f"{AIRTABLE_URL}/{record_id}", headers=headers, json=update_data)
 
         if patch_resp.status_code in [200, 201]:
@@ -122,7 +119,7 @@ def take_task():
             )
             send_telegram_message(
                 customer_id,
-                f"✅ Ваше задание взяли в работу!\n\n*{subject}*\n📝 {description}\n💰 {price} ₽\n⏰ Дедлайн: {deadline}\n\n👨‍💻 Исполнитель: @{executor_username}\n\nПосле выполнения нажмите *'✅ Подтвердить выполнение'*."
+                f"✅ Ваше задание взяли в работу!\n\n*{subject}*\n📝 {description}\n💰 {price} ₽\n⏰ Дедлайн: {deadline}\n\n👨💻 Исполнитель: @{executor_username}\n\nПосле выполнения нажмите *'✅ Подтвердить выполнение'*."
             )
             return jsonify({"success": True})
         else:
@@ -132,6 +129,6 @@ def take_task():
         logging.exception("❌ Ошибка при взятии")
         return jsonify({"success": False, "error": str(e)}), 500
 
-# Запуск
+# 🚀 Важно: слушаем 0.0.0.0, чтобы видеть порт на Render!
 if __name__ == "__main__":
-    app.run(port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8000)
