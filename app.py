@@ -13,6 +13,10 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://grud1807.github.io"}})
 logging.basicConfig(level=logging.INFO)
 
+@app.route("/", methods=["GET"])
+def home():
+    return "✅ Сервер работает!"
+    
 def send_telegram_message(user_id, text):
     try:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -25,9 +29,6 @@ def send_telegram_message(user_id, text):
         logging.info(f"📩 Сообщение пользователю {user_id}: {response.status_code}")
     except Exception as e:
         logging.error(f"❌ Ошибка Telegram: {e}")
-@app.route("/", methods=["GET"])
-def home():
-    return "✅ Сервер работает!"
     
 @app.route("/add-task", methods=["POST"])
 def add_task():
@@ -135,4 +136,5 @@ def take_task():
 # 🚀 Важно: слушаем 0.0.0.0, чтобы видеть порт на Render!
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
+
 
