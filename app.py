@@ -65,8 +65,7 @@ def add_task():
         logging.info(f"📤 Ответ Airtable: {response.status_code} {response.text}")
 
         if response.status_code in [200, 201]:
-            send_telegram_message(user_id, "✅ Задание успешно добавлено!
-Ожидайте, когда его возьмут в работу.")
+            send_telegram_message(user_id, "✅ Задание успешно добавлено!Ожидайте, когда его возьмут в работу.")
             return jsonify({"success": True})
         else:
             return jsonify({"success": False, "error": response.text}), 400
@@ -152,3 +151,4 @@ def take_task():
 # Запуск
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
+
