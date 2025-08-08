@@ -146,9 +146,10 @@ def main():
     # Обработчик любых callback с подтверждениями и основными кнопками
     application.add_handler(CallbackQueryHandler(callback_handler))
 
-    logging.info("Бот Studentus запущен.")
+    logging.info("Бот Studentus запущен!")
     application.run_polling()
 
 
 if __name__ == "__main__":
     main()
+
