@@ -1,6 +1,10 @@
 import logging
 import aiohttp
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Update
+)
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -8,43 +12,43 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# Твои константы:
 TOKEN = "8101750587:AAEoO1Aote7wHIRDADD4kpwFyYOYIkibe_c"
 AIRTABLE_URL = "https://api.airtable.com/v0/appTpq4tdeQ27uxQ9/Tasks"
+AIRTABLE_API_KEY = "patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4"
 HEADERS = {
-    "Authorization": "Bearer patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4",
+    "Authorization": f"Bearer {AIRTABLE_API_KEY}",
     "Content-Type": "application/json"
 }
 
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+
 async def airtable_update_task(record_id: str, fields: dict):
+    """Обновляет запись в Airtable по record_id."""
     url = f"{AIRTABLE_URL}/{record_id}"
     async with aiohttp.ClientSession() as session:
-        async with session.patch(url, json={"fields": fields}, headers=HEADERS) as resp:
+        async with session.patch(url, headers=HEADERS, json={"fields": fields}) as resp:
             return await resp.json()
 
-# Функция, которая показывает задание с кнопкой подтверждения (пример)
-async def show_task_with_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, task_record):
-    fields = task_record["fields"]
-    record_id = task_record["id"]
 
-    customer_id = int(fields.get('ID заказчика'))
-    executor_id = int(fields.get('ID исполнителя'))
-    status = fields.get('Статус', 'Новое')
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start с красивыми кнопками."""
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Мои задания", callback_data="my_tasks")],
+        [InlineKeyboardButton("Помощь", callback_data="help")]
+    ])
+    await update.message.reply_text(
+        "Добро пожаловать в Studentus!\n\n"
+        "Выбирайте действие ниже:",
+        reply_markup=keyboard
+    )
 
-    text = f"Задание:\n{fields.get('Описание', 'нет описания')}\nЦена: {fields.get('Цена', '0')} ₽\nСтатус: {status}"
 
-    # Показываем кнопку только если статус В работе и пользователь заказчик или исполнитель
-    user_id = update.effective_user.id
-    keyboard = None
-    if status == "В работе" and (user_id == customer_id or user_id == executor_id):
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Подтвердить выполнение", callback_data=f"confirm_{record_id}")]]
-        )
-
-    await update.message.reply_text(text, reply_markup=keyboard)
-
-# Callback для обработки подтверждений
 async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик подтверждения выполнения задания."""
     query = update.callback_query
     user_id = query.from_user.id
     task_record_id = query.data.split('_')[1]
@@ -101,16 +105,24 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(executor_id, "Задание успешно завершено! Хорошая работа!")
 
     await query.answer("Подтверждение принято! Спасибо.")
-    async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        await query.answer()
-        await query.message.reply_text("Это бот Studentus.\n\n"
-                                  "Вы можете брать задания, подтверждать выполнение и общаться через бота.")
+
+
+async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text(
+        "Это бот Studentus.\n\n"
+        "Вы можете брать задания, подтверждать выполнение и общаться через бота."
+    )
+
 
 async def my_tasks_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("Здесь будет список ваших заданий (реализацию добавим позже).")
+    await query.message.reply_text(
+        "Здесь будет список ваших заданий (реализацию добавим позже)."
+    )
+
 
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -120,19 +132,23 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await help_callback(update, context)
     elif data == "my_tasks":
         await my_tasks_callback(update, context)
+    elif data.startswith("confirm_"):
+        # Подтверждение выполнения задания
+        await confirm_callback(update, context)
     else:
         await query.answer("Неизвестная команда.")
+
 
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start))  # предполагается, что start у тебя есть
-    application.add_handler(CallbackQueryHandler(confirm_callback, pattern=r"confirm_"))
-    application.add_handler(CallbackQueryHandler(callback_handler, pattern=r"^(help|my_tasks)$"))
+    application.add_handler(CommandHandler("start", start))
+    # Обработчик любых callback с подтверждениями и основными кнопками
+    application.add_handler(CallbackQueryHandler(callback_handler))
 
     logging.info("Бот Studentus запущен.")
     application.run_polling()
 
+
 if __name__ == "__main__":
     main()
-
