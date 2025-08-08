@@ -102,9 +102,9 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer("Подтверждение принято! Спасибо.")
     async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.message.reply_text("Это бот Studentus.\n\n"
+        query = update.callback_query
+        await query.answer()
+        await query.message.reply_text("Это бот Studentus.\n\n"
                                   "Вы можете брать задания, подтверждать выполнение и общаться через бота.")
 
 async def my_tasks_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -135,3 +135,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
