@@ -1,159 +1,137 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import requests
 import logging
-import html
+import aiohttp
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+)
 
-# ✅ Конфигурация
-BOT_TOKEN = "8101750587:AAEoO1Aote7wHIRDADD4kpwFyYOYIkibe_c"
-AIRTABLE_API_KEY = "patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4"
-AIRTABLE_BASE_ID = "appTpq4tdeQ27uxQ9"
-AIRTABLE_TABLE_NAME = "Tasks"
-AIRTABLE_URL = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
+# Твои константы:
+TOKEN = "8101750587:AAEoO1Aote7wHIRDADD4kpwFyYOYIkibe_c"
+AIRTABLE_URL = "https://api.airtable.com/v0/appTpq4tdeQ27uxQ9/Tasks"
+HEADERS = {
+    "Authorization": "Bearer patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4",
+    "Content-Type": "application/json"
+}
 
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://grud1807.github.io"}})
-logging.basicConfig(level=logging.INFO)
+async def airtable_update_task(record_id: str, fields: dict):
+    url = f"{AIRTABLE_URL}/{record_id}"
+    async with aiohttp.ClientSession() as session:
+        async with session.patch(url, json={"fields": fields}, headers=HEADERS) as resp:
+            return await resp.json()
 
-# ✅ Отправка сообщений в Telegram
-def send_telegram_message(user_id, text):
-    try:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": user_id,
-            "text": html.escape(text),
-            "parse_mode": "HTML"
-        }
-        response = requests.post(url, json=payload)
-        logging.info(f"📩 Сообщение пользователю {user_id}: {response.status_code} {response.text}")
-    except Exception as e:
-        logging.error(f"❌ Ошибка при отправке сообщения Telegram: {e}")
+# Функция, которая показывает задание с кнопкой подтверждения (пример)
+async def show_task_with_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE, task_record):
+    fields = task_record["fields"]
+    record_id = task_record["id"]
 
-# ✅ Добавление задания
-@app.route("/add-task", methods=["POST"])
-def add_task():
-    try:
-        data = request.json
-        logging.info(f"📥 Задание от клиента: {data}")
+    customer_id = int(fields.get('ID заказчика'))
+    executor_id = int(fields.get('ID исполнителя'))
+    status = fields.get('Статус', 'Новое')
 
-        subject = data.get("subject", "")
-        description = data.get("description", "")
-        deadline = data.get("deadline", "")
-        user_id = data.get("user_id", "")
-        username = data.get("username", "")
+    text = f"Задание:\n{fields.get('Описание', 'нет описания')}\nЦена: {fields.get('Цена', '0')} ₽\nСтатус: {status}"
 
-        try:
-            price = int(data.get("price", 0))
-        except ValueError:
-            return jsonify({"success": False, "error": "Некорректная цена"}), 400
+    # Показываем кнопку только если статус В работе и пользователь заказчик или исполнитель
+    user_id = update.effective_user.id
+    keyboard = None
+    if status == "В работе" and (user_id == customer_id or user_id == executor_id):
+        keyboard = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("Подтвердить выполнение", callback_data=f"confirm_{record_id}")]]
+        )
 
-        airtable_data = {
-            "fields": {
-                "Предмет": subject,
-                "Описание": description,
-                "Цена": price,
-                "Дедлайн": deadline,
-                "ID пользователя": user_id,
-                "Пользователь Telegram": username,
-                "Статус": "Новое"
-            }
-        }
+    await update.message.reply_text(text, reply_markup=keyboard)
 
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-            "Content-Type": "application/json"
-        }
+# Callback для обработки подтверждений
+async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_id = query.from_user.id
+    task_record_id = query.data.split('_')[1]
 
-        response = requests.post(AIRTABLE_URL, headers=headers, json=airtable_data)
-        logging.info(f"📤 Ответ Airtable: {response.status_code} {response.text}")
+    # Получаем задачу по record_id
+    async with aiohttp.ClientSession() as session:
+        url = f"{AIRTABLE_URL}/{task_record_id}"
+        async with session.get(url, headers=HEADERS) as resp:
+            task_record = await resp.json()
 
-        if response.status_code in [200, 201]:
-            send_telegram_message(user_id, "✅ Задание успешно добавлено!\nОжидайте, когда его возьмут в работу.")
-            return jsonify({"success": True})
-        else:
-            return jsonify({"success": False, "error": response.text}), 400
-    except Exception as e:
-        logging.exception("❌ Ошибка при добавлении задания")
-        return jsonify({"success": False, "error": str(e)}), 500
+    if "fields" not in task_record:
+        await query.answer("Задание не найдено.")
+        return
 
-# ✅ Взятие задания в работу
-@app.route("/take-task", methods=["POST"])
-def take_task():
-    try:
-        data = request.json
-        record_id = data.get("record_id")
-        executor_id = data.get("executor_id")
-        executor_username = data.get("executor_username")
+    fields = task_record["fields"]
+    customer_id = int(fields.get('ID заказчика'))
+    executor_id = int(fields.get('ID исполнителя'))
 
-        if not record_id or not executor_id:
-            return jsonify({"success": False, "error": "Нет необходимых данных"}), 400
+    if user_id != customer_id and user_id != executor_id:
+        await query.answer("Вы не участвуете в этом задании.")
+        return
 
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-            "Content-Type": "application/json"
-        }
+    cust_confirm = fields.get('Подтверждение заказчика', 'Нет')
+    exec_confirm = fields.get('Подтверждение исполнителя', 'Нет')
 
-        # Получаем задание
-        get_resp = requests.get(f"{AIRTABLE_URL}/{record_id}", headers=headers)
-        if get_resp.status_code != 200:
-            return jsonify({"success": False, "error": "Задание не найдено"}), 404
+    if user_id == customer_id:
+        if cust_confirm == 'Да':
+            await query.answer("Вы уже подтвердили выполнение.")
+            return
+        cust_confirm = 'Да'
+    elif user_id == executor_id:
+        if exec_confirm == 'Да':
+            await query.answer("Вы уже подтвердили выполнение.")
+            return
+        exec_confirm = 'Да'
 
-        task = get_resp.json().get("fields", {})
-        customer_id = task.get("ID пользователя")
-        customer_username = task.get("Пользователь Telegram", "неизвестно")
-        subject = task.get("Предмет", "")
-        description = task.get("Описание", "")
-        price = task.get("Цена", "")
-        deadline = task.get("Дедлайн", "")
+    # Обновляем подтверждения
+    await airtable_update_task(task_record_id, {
+        "Подтверждение заказчика": cust_confirm,
+        "Подтверждение исполнителя": exec_confirm
+    })
 
-        # Обновляем статус задания
-        update_data = {
-            "fields": {
-                "Статус": "В работе",
-                "ID исполнителя": executor_id,
-                "Подтверждение заказчика": "Нет",
-                "Подтверждение исполнителя": "Нет"
-            }
-        }
+    # Если подтвердил только один — удаляем кнопку и пишем "ждите подтверждения другой стороны"
+    if cust_confirm != 'Да' or exec_confirm != 'Да':
+        await query.answer("Подтверждение принято! Ждите подтверждения другой стороны.")
+        await query.edit_message_reply_markup(reply_markup=None)
+        return
 
-        patch_resp = requests.patch(f"{AIRTABLE_URL}/{record_id}", headers=headers, json=update_data)
-        logging.info(f"📦 Обновляем задание {record_id} | Исполнитель: {executor_username} (ID: {executor_id})")
+    # Если оба подтвердили — меняем статус, уведомляем и убираем кнопки
+    await airtable_update_task(task_record_id, {"Статус": "Завершено"})
+    await query.edit_message_reply_markup(reply_markup=None)
 
-        if patch_resp.status_code in [200, 201]:
-            send_telegram_message(
-                executor_id,
-                f"""📚 Вы взяли задание:
+    await context.bot.send_message(customer_id, "Задание успешно завершено! Спасибо за сотрудничество.")
+    await context.bot.send_message(executor_id, "Задание успешно завершено! Хорошая работа!")
 
-<b>{subject}</b>
-📝 {description}
-💰 {price} ₽
-⏰ Дедлайн: {deadline}
+    await query.answer("Подтверждение принято! Спасибо.")
+    async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text("Это бот Studentus.\n\n"
+                                  "Вы можете брать задания, подтверждать выполнение и общаться через бота.")
 
-👤 Заказчик: @{customer_username}
+async def my_tasks_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text("Здесь будет список ваших заданий (реализацию добавим позже).")
 
-После выполнения нажмите <b>✅ Подтвердить выполнение</b>."""
-            )
-            send_telegram_message(
-                customer_id,
-                f"""✅ Ваше задание взяли в работу:
+async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data
 
-<b>{subject}</b>
-📝 {description}
-💰 {price} ₽
-⏰ Дедлайн: {deadline}
+    if data == "help":
+        await help_callback(update, context)
+    elif data == "my_tasks":
+        await my_tasks_callback(update, context)
+    else:
+        await query.answer("Неизвестная команда.")
 
-👨💻 Исполнитель: @{executor_username}
+def main():
+    application = ApplicationBuilder().token(TOKEN).build()
 
-После выполнения нажмите <b>✅ Подтвердить выполнение</b>."""
-            )
-            return jsonify({"success": True})
-        else:
-            return jsonify({"success": False, "error": patch_resp.text}), 400
+    application.add_handler(CommandHandler("start", start))  # предполагается, что start у тебя есть
+    application.add_handler(CallbackQueryHandler(confirm_callback, pattern=r"confirm_"))
+    application.add_handler(CallbackQueryHandler(callback_handler, pattern=r"^(help|my_tasks)$"))
 
-    except Exception as e:
-        logging.exception("❌ Ошибка при взятии задания")
-        return jsonify({"success": False, "error": str(e)}), 500
+    logging.info("Бот Studentus запущен.")
+    application.run_polling()
 
-# ✅ Запуск
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+    main()
