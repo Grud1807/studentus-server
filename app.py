@@ -104,7 +104,7 @@ async def confirm_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(customer_id, "Задание успешно завершено! Спасибо за сотрудничество.")
     await context.bot.send_message(executor_id, "Задание успешно завершено! Хорошая работа!")
 
-    await query.answer("Подтверждение принято! Спасибо.")
+    await query.answer("Подтверждение принято!Спасибо.")
 
 
 async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -152,4 +152,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
