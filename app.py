@@ -2,6 +2,7 @@ import os
 import logging
 import requests
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 # ---------------- НАСТРОЙКИ ----------------
 AIRTABLE_API_KEY = "patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4"
@@ -21,6 +22,8 @@ logging.basicConfig(
 
 # ---------------- Flask ----------------
 app = Flask(__name__)
+# Разрешаем CORS только для твоего фронта
+CORS(app, resources={r"/*": {"origins": "https://grud1807.github.io"}})
 
 # ---------- ФУНКЦИИ РАБОТЫ С AIRTABLE ----------
 def airtable_create_record(fields):
@@ -139,3 +142,4 @@ def confirm_task():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
