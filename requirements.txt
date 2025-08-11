@@ -1,8 +1,6 @@
 Flask==2.3.3
-requests==2.31.0
-
 flask-cors==4.0.0
-python-telegram-bot
-aiohttp
-
+requests==2.31.0
+python-telegram-bot==20.3
+aiohttp==3.8.4
 
