@@ -113,9 +113,10 @@ def take_task():
             logging.error(error_msg)
             return jsonify({"success": False, "error": error_msg}), 400
 
-        if fields.get("ID пользователя") == executor_id:error_msg = "Нельзя взять в работу своё задание."
-           logging.error(error_msg)
-           return jsonify({"success": False, "error": error_msg}), 400
+        if fields.get("ID пользователя") == executor_id:
+            error_msg = "Нельзя взять в работу своё задание."
+            logging.error(error_msg)
+            return jsonify({"success": False, "error": error_msg}), 400
 
         # Проверяем, не взял ли исполнитель уже другое задание в работе
         filter_executor = f'AND({{ID исполнителя}}={executor_id}, {{Статус}}="В работе")'
@@ -215,4 +216,3 @@ def confirm_task():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
-
