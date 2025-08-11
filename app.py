@@ -59,28 +59,29 @@ def add_task():
         return jsonify({"success": False, "error": error_msg}), 400
 
     try:
-        fields = {
-            "Предмет": data["subject"],
-            "Описание": data["description"],
-            "Цена": int(data["price"]),
-            "Дедлайн": data["deadline"],
-            "ID пользователя": int(data["user_id"]),
-            "Пользователь Telegram": data["username"],
-            "Статус": "Новое",
-            # Дополнительные поля для подтверждения и исполнителя по умолчанию пустые
-            "Подтверждение заказчика": "Нет",
-            "Подтверждение исполнителя": "Нет",
-            "ID исполнителя": None,
-            "Исполнитель Telegram": "",
-        }
-        record = airtable_create_record(fields)
-        logging.info(f"Задание добавлено в Airtable, ID записи: {record.get('id')}")
-
-        return jsonify({"success": True, "id": record.get("id")})
-    except Exception as e:
-        logging.error(f"Ошибка добавления задания: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
+    fields = {
+        "Предмет": data["subject"],
+        "Описание": data["description"],
+        "Цена": int(data["price"]),          # обязательно int
+        "Дедлайн": data["deadline"],         # должен быть строкой, лучше формат ISO: YYYY-MM-DD
+        "ID пользователя": int(data["user_id"]),
+        "Пользователь Telegram": data["username"],
+        "Статус": "Новое",
+        "Подтверждение заказчика": "Нет",
+        "Подтверждение исполнителя": "Нет",
+        "ID исполнителя": None,
+        "Исполнитель Telegram": "",
+    }
+    logging.info(f"Отправляем в Airtable поля: {fields}")
+    record = airtable_create_record(fields)
+    logging.info(f"Задание добавлено в Airtable, ID записи: {record.get('id')}")
+    return jsonify({"success": True, "id": record.get("id")})
+except requests.exceptions.HTTPError as http_err:
+    logging.error(f"Ошибка Airtable HTTP: {http_err.response.text}")
+    return jsonify({"success": False, "error": f"Airtable error: {http_err.response.text}"}), 500
+except Exception as e:
+    logging.error(f"Ошибка добавления задания: {e}")
+    return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/take-task", methods=["POST"])
 def take_task():
@@ -216,3 +217,4 @@ def confirm_task():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
