@@ -2,10 +2,16 @@ import logging
 from flask import Flask, request, jsonify
 import requests
 import os
+from flask_cors import CORS  # <-- импортируем
 
 app = Flask(__name__)
 
-# Получаем из окружения, или заменяй на свои реальные значения (НЕ ПУБЛИЧИ):
+# Разрешаем CORS для сайта https://grud1807.github.io (твой фронт)
+CORS(app, origins=["https://grud1807.github.io"])
+
+# Если хочешь разрешить все (для теста), можно так:
+# CORS(app)
+
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY", "patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4")
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "appTpq4tdeQ27uxQ9")
 AIRTABLE_TABLE_NAME = "Tasks"
@@ -41,7 +47,6 @@ def api_add_task():
         return jsonify({"success": False, "error": error_msg}), 400
 
     try:
-        # Преобразуем и маппим поля в названия Airtable
         fields = {
             "Предмет": data["subject"],
             "Описание": data["description"],
