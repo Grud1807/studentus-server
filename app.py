@@ -1,4 +1,4 @@
-# app.py — Studentus backend (Render). НЕ содержит BOT_TOKEN
+# app.py — Studentus backend (Render). НЕ содержит BOT_TOKEN да
 import os
 import logging
 import requests
@@ -245,3 +245,4 @@ def confirm_task():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
