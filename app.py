@@ -239,10 +239,58 @@ def confirm_task():
     except Exception as e:
         logging.exception("Error in /confirm-task")
         return jsonify({"success": False, "error": str(e)}), 500
+        
+# ========= Добавление заявки в таблицу Projects =========
+@app.route("/add-project", methods=["POST"])
+def add_project():
+    try:
+        data = request.json
+
+        # Достаём данные из формы
+        name = data.get("name")
+        topic = data.get("topic")
+        deadline = data.get("deadline")
+        wishes = data.get("wishes")
+        contacts = data.get("contacts")
+
+        # Готовим запись для Airtable
+        record = {
+            "fields": {
+                "Имя": name,
+                "Тема проекта": topic,
+                "Дедлайн": deadline,
+                "Пожелания": wishes,
+                "Контакты": contacts,
+                "Статус": "Новая"
+            }
+        }
+
+        # Отправляем в Airtable
+        response = requests.post(
+            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Projects",
+            headers={
+                "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json=record
+        )
+
+        if response.status_code == 200:
+            return jsonify({"success": True, "message": "Заявка успешно добавлена!"})
+        else:
+            return jsonify({
+                "success": False,
+                "message": "Ошибка при добавлении в Airtable",
+                "details": response.json()
+            }), 400
+
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Ошибка сервера: {str(e)}"}), 500
 
 
 # ---------- Run ----------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
