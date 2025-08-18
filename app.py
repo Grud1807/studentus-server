@@ -4,9 +4,14 @@ import logging
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from datetime import datetime
 
 # ---------------- CONFIG ----------------
 # Лучше задавать AIRTABLE_API_KEY и AIRTABLE_BASE_ID как env vars в Render.
+AIRTABLE_BASE_ID_PROJECTS = os.getenv("AIRTABLE_BASE_ID_PROJECTS", "app0YQKcIIvnnxQqj")
+AIRTABLE_TABLE_NAME_PROJECTS = "Projects"
+AIRTABLE_URL_PROJECTS = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID_PROJECTS}/{AIRTABLE_TABLE_NAME_PROJECTS}"
+
 AIRTABLE_API_KEY = os.getenv(
     "AIRTABLE_API_KEY",
     "patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4"
@@ -246,7 +251,7 @@ def add_project():
     try:
         data = request.json
         name = data.get("name")
-        theme = data.get("theme")
+        theme = data.get("projectTopic")  # исправлено
         deadline = data.get("deadline")
         wishes = data.get("wishes")
         contacts = data.get("contacts")
@@ -268,10 +273,9 @@ def add_project():
             "Content-Type": "application/json"
         }
 
-        url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Projects"
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(AIRTABLE_URL_PROJECTS, json=payload, headers=headers)
 
-        if response.status_code == 200:
+        if response.status_code in [200, 201]:
             return jsonify({"success": True, "message": "Заявка успешно добавлена"})
         else:
             return jsonify({
@@ -288,6 +292,7 @@ def add_project():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
