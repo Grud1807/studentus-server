@@ -277,14 +277,12 @@ def add_project():
         app.logger.exception("Ошибка в /add-project")
         return jsonify({"success": False, "message": str(e)}), 500
         
-@app.get("/")
-def home():
-    return jsonify({"ok": True, "service": "Studentus API"})
 
 # ---------- Run ----------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
