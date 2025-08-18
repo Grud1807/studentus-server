@@ -1,26 +1,25 @@
 # app.py — Studentus backend (Render). НЕ содержит BOT_TOKEN да
 import os
 import logging
+from datetime import datetime
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from datetime import datetime
 
-# ---------------- CONFIG ----------------
-# Лучше задавать AIRTABLE_API_KEY и AIRTABLE_BASE_ID как env vars в Render.
-AIRTABLE_BASE_ID_PROJECTS = os.getenv("AIRTABLE_BASE_ID_PROJECTS", "app0YQKcIIvnnxQqj")
-AIRTABLE_TABLE_NAME_PROJECTS = "Projects"
-AIRTABLE_URL_PROJECTS = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID_PROJECTS}/{AIRTABLE_TABLE_NAME_PROJECTS}"
+app = Flask(__name__)
+# Разрешим запросы с любых источников (если хочешь — поставь свой домен вместо "*")
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-AIRTABLE_API_KEY = os.getenv(
-    "AIRTABLE_API_KEY",
-    "patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4"
-)
-AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "appTpq4tdeQ27uxQ9")
-AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME", "Tasks")
-AIRTABLE_URL = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
+# ------- ОБЩЕЕ -------
+AIRTABLE_API_KEY = os.getenv("patZ7hX8W8F8apmJm.9adf2ed71f8925dd372af08a5b5af2af4b12ead4abc0036be4ea68c43c47a8c4")  # PAT с доступом к обеим базам
 
-ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "https://grud1807.github.io")
+# ------- Tasks -------
+AIRTABLE_BASE_ID_TASKS = os.getenv("appTpq4tdeQ27uxQ9")  # ID базы, где таблица Tasks
+AIRTABLE_URL_TASKS = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID_TASKS}/Tasks"
+
+# ------- Projects -------
+AIRTABLE_BASE_ID_PROJECTS = os.getenv("app0YQKcIIvnnxQqj")  # ID базы, где таблица Projects
+AIRTABLE_URL_PROJECTS = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID_PROJECTS}/Projects"
 
 HEADERS = {
     "Authorization": f"Bearer {AIRTABLE_API_KEY}",
@@ -249,48 +248,44 @@ def confirm_task():
 @app.route("/add-project", methods=["POST"])
 def add_project():
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "Нет данных в запросе"}), 400
-
-        # Проверка: что именно пришло
+        data = request.get_json(force=True)
         app.logger.info(f"Пришли данные для Projects: {data}")
 
-        url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID_PROJECTS}/Projects"
-        headers = {
-            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-            "Content-Type": "application/json"
-        }
-
-        # Должны совпадать с колонками в Airtable!
         fields = {
-            "Тема проекта": data.get("Тема проекта"),
-            "Дедлайн": data.get("Дедлайн"),
-            "Пожелания": data.get("Пожелания"),
-            "Контакты": data.get("Контакты")
+            "Имя": data.get("name"),
+            "Тема проекта": data.get("projectTopic"),
+            "Дедлайн": data.get("deadline"),
+            "Пожелания": data.get("wishes"),
+            "Контакты": data.get("contacts"),
+            "Дата заявки": datetime.now().strftime("%Y-%m-%d"),
+            "Статус": "Новая"
         }
 
         payload = {"fields": fields}
 
-        r = requests.post(url, headers=headers, json=payload)
+        # Отправляем именно в базу Projects:
+        r = requests.post(AIRTABLE_URL_PROJECTS, headers=HEADERS, json=payload)
+        app.logger.info(f"Airtable Projects ответ: {r.status_code} {r.text}")
 
-        # Логируем ответ Airtable
-        app.logger.info(f"Ответ от Airtable: {r.status_code} {r.text}")
-
-        if r.status_code == 200:
-            return jsonify({"success": True, "message": "Заявка успешно добавлена!"}), 200
+        if r.status_code in (200, 201):
+            return jsonify({"success": True, "message": "Заявка успешно добавлена"}), 200
         else:
-            return jsonify({"error": "Ошибка Airtable", "details": r.text}), 500
+            # Прокинем тело Airtable для быстрой диагностики
+            return jsonify({"success": False, "message": "Ошибка при добавлении", "details": r.text}), 500
 
     except Exception as e:
-        app.logger.error(f"Ошибка в /add-project: {e}")
-        return jsonify({"error": str(e)}), 500
-
+        app.logger.exception("Ошибка в /add-project")
+        return jsonify({"success": False, "message": str(e)}), 500
+        
+@app.get("/")
+def home():
+    return jsonify({"ok": True, "service": "Studentus API"})
 
 # ---------- Run ----------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
