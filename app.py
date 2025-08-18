@@ -30,7 +30,7 @@ HEADERS = {
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})  # Разрешаем все запросы
 
 
 # ---------------- Helpers ----------------
@@ -292,6 +292,7 @@ def add_project():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
