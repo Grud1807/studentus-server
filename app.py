@@ -229,7 +229,7 @@ def add_project():
     except requests.exceptions.HTTPError as he:
         body = he.response.text if he.response else str(he)
         logging.error(f"Airtable error Projects: {body}")
-        return jsonify({"success": False, "message": "Ошибка при добавлении", "details": body}), 422
+        return jsonify({"success": False, "message": "Ошибка при добавлении !", "details": body}), 422
     except Exception as e:
         logging.exception("Ошибка в /add-project")
         return jsonify({"success": False, "message": str(e)}), 500
@@ -238,4 +238,5 @@ def add_project():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
