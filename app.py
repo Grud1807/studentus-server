@@ -245,52 +245,49 @@ def confirm_task():
 def add_project():
     try:
         data = request.json
-
-        # Достаём данные из формы
         name = data.get("name")
-        topic = data.get("topic")
+        theme = data.get("theme")
         deadline = data.get("deadline")
         wishes = data.get("wishes")
         contacts = data.get("contacts")
 
-        # Готовим запись для Airtable
-        record = {
+        payload = {
             "fields": {
                 "Имя": name,
-                "Тема проекта": topic,
+                "Тема проекта": theme,
                 "Дедлайн": deadline,
                 "Пожелания": wishes,
                 "Контакты": contacts,
+                "Дата заявки": datetime.now().strftime("%Y-%m-%d"),
                 "Статус": "Новая"
             }
         }
 
-        # Отправляем в Airtable
-        response = requests.post(
-            f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Projects",
-            headers={
-                "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json=record
-        )
+        headers = {
+            "Authorization": f"Bearer {AIRTABLE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Projects"
+        response = requests.post(url, json=payload, headers=headers)
 
         if response.status_code == 200:
-            return jsonify({"success": True, "message": "Заявка успешно добавлена!"})
+            return jsonify({"success": True, "message": "Заявка успешно добавлена"})
         else:
             return jsonify({
                 "success": False,
-                "message": "Ошибка при добавлении в Airtable",
+                "message": "Ошибка при добавлении",
                 "details": response.json()
-            }), 400
+            }), response.status_code
 
     except Exception as e:
-        return jsonify({"success": False, "message": f"Ошибка сервера: {str(e)}"}), 500
+        return jsonify({"success": False, "message": str(e)})
 
 
 # ---------- Run ----------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
