@@ -249,49 +249,49 @@ def confirm_task():
 @app.route("/add-project", methods=["POST"])
 def add_project():
     try:
-        data = request.json
-        name = data.get("name")
-        theme = data.get("projectTopic")  # исправлено
-        deadline = data.get("deadline")
-        wishes = data.get("wishes")
-        contacts = data.get("contacts")
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Нет данных в запросе"}), 400
 
-        payload = {
-            "fields": {
-                "Имя": name,
-                "Тема проекта": theme,
-                "Дедлайн": deadline,
-                "Пожелания": wishes,
-                "Контакты": contacts,
-                "Дата заявки": datetime.now().strftime("%Y-%m-%d"),
-                "Статус": "Новая"
-            }
-        }
+        # Проверка: что именно пришло
+        app.logger.info(f"Пришли данные для Projects: {data}")
 
+        url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID_PROJECTS}/Projects"
         headers = {
             "Authorization": f"Bearer {AIRTABLE_API_KEY}",
             "Content-Type": "application/json"
         }
 
-        response = requests.post(AIRTABLE_URL_PROJECTS, json=payload, headers=headers)
+        # Должны совпадать с колонками в Airtable!
+        fields = {
+            "Тема проекта": data.get("Тема проекта"),
+            "Дедлайн": data.get("Дедлайн"),
+            "Пожелания": data.get("Пожелания"),
+            "Контакты": data.get("Контакты")
+        }
 
-        if response.status_code in [200, 201]:
-            return jsonify({"success": True, "message": "Заявка успешно добавлена"})
+        payload = {"fields": fields}
+
+        r = requests.post(url, headers=headers, json=payload)
+
+        # Логируем ответ Airtable
+        app.logger.info(f"Ответ от Airtable: {r.status_code} {r.text}")
+
+        if r.status_code == 200:
+            return jsonify({"success": True, "message": "Заявка успешно добавлена!"}), 200
         else:
-            return jsonify({
-                "success": False,
-                "message": "Ошибка при добавлении",
-                "details": response.json()
-            }), response.status_code
+            return jsonify({"error": "Ошибка Airtable", "details": r.text}), 500
 
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)})
+        app.logger.error(f"Ошибка в /add-project: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------- Run ----------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
