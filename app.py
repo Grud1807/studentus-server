@@ -138,6 +138,10 @@ def take_task():
 
         record_id = data.get("record_id")
         executor_id = safe_int(data.get("executor_id"))
+        executor_username = data.get("executor_username") or "без username"
+        if executor_username != "без username" and not executor_username.startswith("@"):
+            executor_username = f"@{executor_username}"
+
         if not record_id or executor_id is None:
             return jsonify({"success": False, "error": "record_id и executor_id обязательны"}), 400
 
@@ -156,19 +160,15 @@ def take_task():
         if list_resp.get("records"):
             return jsonify({"success": False, "error": "У вас уже есть задание в работе"}), 400
 
-        executor_username = data.get("executor_username") or "без username"
-if executor_username != "без username" and not executor_username.startswith("@"):
-    executor_username = f"@{executor_username}"
+        update_fields = {
+            "ID исполнителя": executor_id,
+            "Исполнитель Telegram": executor_username,   # новая колонка
+            "Статус": "В работе",
+            "Уведомление отправлено": "Нет"
+        }
+        airtable_update(AIRTABLE_URL_TASKS, record_id, update_fields)
 
-update_fields = {
-    "ID исполнителя": executor_id,
-    "Исполнитель Telegram": executor_username,   # ← новая колонка
-    "Статус": "В работе",
-    "Уведомление отправлено": "Нет"
-}
-airtable_update(AIRTABLE_URL_TASKS, record_id, update_fields)
-
-        logging.info(f"Task {record_id} taken by {executor_id}")
+        logging.info(f"Task {record_id} taken by {executor_id} ({executor_username})")
         return jsonify({"success": True, "record_id": record_id, "message": "Задание взято в работу"})
 
     except Exception as e:
@@ -247,6 +247,7 @@ def add_project():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
