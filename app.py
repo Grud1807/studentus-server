@@ -156,8 +156,17 @@ def take_task():
         if list_resp.get("records"):
             return jsonify({"success": False, "error": "У вас уже есть задание в работе"}), 400
 
-        update_fields = {"ID исполнителя": executor_id, "Статус": "В работе", "Уведомление отправлено": "Нет"}
-        airtable_update(AIRTABLE_URL_TASKS, record_id, update_fields)
+        executor_username = data.get("executor_username") or "без username"
+if executor_username != "без username" and not executor_username.startswith("@"):
+    executor_username = f"@{executor_username}"
+
+update_fields = {
+    "ID исполнителя": executor_id,
+    "Исполнитель Telegram": executor_username,   # ← новая колонка
+    "Статус": "В работе",
+    "Уведомление отправлено": "Нет"
+}
+airtable_update(AIRTABLE_URL_TASKS, record_id, update_fields)
 
         logging.info(f"Task {record_id} taken by {executor_id}")
         return jsonify({"success": True, "record_id": record_id, "message": "Задание взято в работу"})
@@ -238,5 +247,6 @@ def add_project():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
