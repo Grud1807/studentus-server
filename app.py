@@ -85,10 +85,6 @@ def home():
 # --------- Tasks ---------
 @app.route("/add-task", methods=["POST"])
 def add_task():
-    """
-    Ожидает JSON:
-    { subject, description, price, deadline, user_id, username }
-    """
     try:
         data = request.get_json(force=True)
         logging.info(f"POST /add-task payload: {data}")
@@ -111,7 +107,7 @@ def add_task():
             "Описание": str(data.get("description", "")),
             "Цена": price,
             "Дедлайн": str(data.get("deadline", "")),
-            "Статус": "Новое",
+            "Статус": "В обработке",   # 🔹 Меняем начальный статус
             "Подтверждение заказчика": "Нет",
             "Подтверждение исполнителя": "Нет",
             "Уведомление отправлено": "Нет"
@@ -120,7 +116,7 @@ def add_task():
         rec = airtable_create(AIRTABLE_URL_TASKS, fields)
         record_id = rec.get("id")
         logging.info(f"Task created: {record_id}")
-        return jsonify({"success": True, "record_id": record_id, "message": "Задание успешно добавлено"})
+        return jsonify({"success": True, "record_id": record_id, "message": "Задание успешно добавлено! Мы уведомим вас, когда оно будет опубликовано."})
 
     except requests.exceptions.HTTPError as he:
         body = he.response.text if he.response else str(he)
@@ -129,7 +125,7 @@ def add_task():
     except Exception as e:
         logging.exception("Error in /add-task")
         return jsonify({"success": False, "error": str(e)}), 500
-
+        
 @app.route("/take-task", methods=["POST"])
 def take_task():
     try:
@@ -253,6 +249,7 @@ def add_project():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
