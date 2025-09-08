@@ -138,28 +138,43 @@ def take_task():
 
         record_id = data.get("record_id")
         executor_id = safe_int(data.get("executor_id"))
+        executor_username = data.get("executor_username") or "без username"
+
         if not record_id or executor_id is None:
             return jsonify({"success": False, "error": "record_id и executor_id обязательны"}), 400
 
+        # нормализуем username
+        if executor_username != "без username" and not executor_username.startswith("@"):
+            executor_username = f"@{executor_username}"
+
+        # проверка задания
         rec = airtable_get(AIRTABLE_URL_TASKS, record_id=record_id)
         fields = rec.get("fields", {})
         status = fields.get("Статус")
         if status != "Новое":
             return jsonify({"success": False, "error": "Задание уже взято или недоступно"}), 400
 
+        # нельзя брать своё задание
         owner_id = safe_int(fields.get("ID заказчика") or fields.get("ID пользователя"))
         if owner_id == executor_id:
             return jsonify({"success": False, "error": "Нельзя взять своё задание"}), 400
 
+        # проверка на активное задание
         formula = f"AND({{ID исполнителя}}={executor_id}, {{Статус}}='В работе')"
         list_resp = airtable_get(AIRTABLE_URL_TASKS, filter_formula=formula)
         if list_resp.get("records"):
             return jsonify({"success": False, "error": "У вас уже есть задание в работе"}), 400
 
-        update_fields = {"ID исполнителя": executor_id, "Статус": "В работе", "Уведомление отправлено": "Нет"}
+        # обновляем запись
+        update_fields = {
+            "ID исполнителя": executor_id,
+            "Исполнитель Telegram": executor_username,   # новая колонка
+            "Статус": "В работе",
+            "Уведомление отправлено": "Нет"
+        }
         airtable_update(AIRTABLE_URL_TASKS, record_id, update_fields)
 
-        logging.info(f"Task {record_id} taken by {executor_id}")
+        logging.info(f"Task {record_id} taken by {executor_id} ({executor_username})")
         return jsonify({"success": True, "record_id": record_id, "message": "Задание взято в работу"})
 
     except Exception as e:
@@ -238,6 +253,7 @@ def add_project():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
