@@ -235,7 +235,7 @@ def add_project():
 
         rec = airtable_create(AIRTABLE_URL_PROJECTS, fields)
         logging.info(f"Project created: {rec.get('id')}")
-        return jsonify({"success": True, "message": "Заявка успешно добавлена"}), 200
+        return jsonify({"success": True, "message": "Заявка успешно добавлена !"}), 200
 
     except requests.exceptions.HTTPError as he:
         body = he.response.text if he.response else str(he)
